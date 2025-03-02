@@ -1,74 +1,88 @@
 import streamlit as st
-import openai
+import requests
 import os
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Configure OpenAI API
-openai.api_key = os.getenv('OPENAI_API_KEY', '')
-
 def generate_comprehensive_ip_strategy(business_name, business_type, business_description):
     """
-    Generate a comprehensive IP strategy using OpenAI's GPT model
+    Generate a comprehensive IP strategy using Hugging Face's free inference API
     """
-    if not openai.api_key:
-        return "Error: OpenAI API key is not configured"
-    
+    # Hugging Face API endpoint
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY', '')}"
+    }
+
+    # Detailed prompt for IP strategy generation
+    prompt = f"""
+    You are an expert IP strategy consultant. Provide a comprehensive Intellectual Property (IP) strategy for a {business_type} business named {business_name}.
+
+    Business Description: {business_description}
+
+    Comprehensive IP Strategy Outline:
+
+    1. IP Landscape Analysis
+    - Detailed assessment of current IP protection status
+    - Identification of potential IP risks and opportunities
+    - Competitive IP landscape evaluation
+
+    2. Recommended IP Protection Strategies
+    - Comprehensive patent strategy
+    - Trademark protection approach
+    - Copyright considerations and recommendations
+    - Trade secret management plan
+
+    3. Detailed Recommendations
+    - Specific, actionable points for each IP type
+    - Estimated costs and implementation timelines
+    - Potential challenges and strategic mitigation approaches
+
+    4. Strategic Insights
+    - Long-term IP positioning strategy
+    - Innovation protection methodology
+    - Potential IP monetization strategies
+
+    5. Compliance and Legal Considerations
+    - Regulatory compliance framework
+    - International IP protection strategies
+    - Enforcement and defense mechanisms
+
+    6. Financial Implications
+    - Comprehensive investment requirements
+    - Potential return on IP investment
+    - Detailed cost-benefit analysis
+
+    Provide a professional, in-depth, and actionable strategy tailored specifically to a {business_type} business.
+
+    Response Format: Provide a structured, markdown-formatted response with clear sections and actionable insights.
+    """
+
     try:
-        prompt = f"""
-        Provide a comprehensive Intellectual Property (IP) strategy for a {business_type} business named {business_name}.
+        # Payload for Hugging Face API
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 4000,
+                "temperature": 0.7,
+                "top_p": 0.9
+            }
+        }
 
-        Business Description: {business_description}
-
-        The IP strategy should cover:
-
-        1. IP Landscape Analysis
-        - Current IP protection status
-        - Potential IP risks and opportunities
-        - Competitive IP landscape
-
-        2. Recommended IP Protection Strategies
-        - Patent strategy
-        - Trademark protection
-        - Copyright considerations
-        - Trade secret management
-
-        3. Detailed Recommendations
-        - Specific action points for each IP type
-        - Estimated costs and timelines
-        - Potential challenges and mitigation strategies
-
-        4. Strategic Insights
-        - Long-term IP positioning
-        - Innovation protection approach
-        - Potential monetization strategies
-
-        5. Compliance and Legal Considerations
-        - Regulatory compliance
-        - International IP protection
-        - Enforcement strategies
-
-        6. Financial Implications
-        - Investment required
-        - Potential ROI from IP protection
-        - Cost-benefit analysis
-
-        Provide a professional, detailed, and actionable strategy that is tailored to the specific needs of a {business_type} business.
-        """
-
-        response = openai.ChatCompletion.create(
-            model="gpt-4-turbo-preview",
-            messages=[
-                {"role": "system", "content": "You are an expert IP strategy consultant."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=4000,
-            temperature=0.7
-        )
-
-        return response.choices[0].message.content
+        # Make API request
+        response = requests.post(API_URL, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            # Extract generated text
+            generated_text = response.json()[0]['generated_text']
+            
+            # Clean up the response
+            strategy = generated_text.split(prompt)[-1].strip()
+            return strategy
+        else:
+            return f"Error: Unable to generate strategy. Status code: {response.status_code}"
 
     except Exception as e:
         return f"An error occurred: {str(e)}"
@@ -107,9 +121,9 @@ def main():
     
     # API Key input (optional, for demonstration)
     api_key = st.text_input(
-        "OpenAI API Key (optional)", 
+        "Hugging Face API Key (optional)", 
         type="password", 
-        help="If you have an OpenAI API key, enter it here. Otherwise, a default key will be used."
+        help="If you have a Hugging Face API key, enter it here."
     )
     
     # Strategy Generation Button
@@ -120,7 +134,7 @@ def main():
         else:
             # Use provided API key or fall back to environment variable
             if api_key:
-                openai.api_key = api_key
+                os.environ['HUGGINGFACE_API_KEY'] = api_key
             
             # Show loading spinner
             with st.spinner('Generating comprehensive IP strategy...'):
