@@ -2,19 +2,36 @@ import streamlit as st
 import requests
 import os
 from dotenv import load_dotenv
+import time
+import hashlib
 
 # Load environment variables
 load_dotenv()
 
+# Configure Streamlit page
+st.set_page_config(
+    page_title="AI IP Strategy Generator", 
+    page_icon="🚀", 
+    layout="wide"
+)
+
+# Caching mechanism for API calls
+@st.cache_data(show_spinner=False, ttl=3600)
 def generate_comprehensive_ip_strategy(business_name, business_type, business_description):
     """
     Generate a comprehensive IP strategy using Hugging Face's free inference API
+    with advanced error handling and caching
     """
     # Hugging Face API endpoint
     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
     headers = {
         "Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY', '')}"
     }
+
+    # Create a unique hash for caching
+    cache_key = hashlib.md5(
+        f"{business_name}{business_type}{business_description}".encode()
+    ).hexdigest()
 
     # Detailed prompt for IP strategy generation
     prompt = f"""
@@ -67,12 +84,18 @@ def generate_comprehensive_ip_strategy(business_name, business_type, business_de
             "parameters": {
                 "max_new_tokens": 4000,
                 "temperature": 0.7,
-                "top_p": 0.9
+                "top_p": 0.9,
+                "repetition_penalty": 1.2
             }
         }
 
-        # Make API request
-        response = requests.post(API_URL, headers=headers, json=payload)
+        # Make API request with timeout
+        response = requests.post(
+            API_URL, 
+            headers=headers, 
+            json=payload, 
+            timeout=45
+        )
         
         if response.status_code == 200:
             # Extract generated text
@@ -82,86 +105,83 @@ def generate_comprehensive_ip_strategy(business_name, business_type, business_de
             strategy = generated_text.split(prompt)[-1].strip()
             return strategy
         else:
-            return f"Error: Unable to generate strategy. Status code: {response.status_code}"
+            st.error(f"API Error: Unable to generate strategy. Status code: {response.status_code}")
+            return None
 
+    except requests.exceptions.RequestException as e:
+        st.error(f"Network Error: {str(e)}")
+        return None
     except Exception as e:
-        return f"An error occurred: {str(e)}"
+        st.error(f"Unexpected Error: {str(e)}")
+        return None
 
 def main():
-    st.set_page_config(page_title="AI IP Strategy Generator", page_icon="🚀")
+    st.title("🚀 AI-Powered Intellectual Property Strategy Generator")
     
-    st.title("AI-Powered Intellectual Property Strategy Generator")
-    
+    # Business Type Selection
+    business_types = [
+        "Technology", "Manufacturing", "Software", 
+        "Consulting", "Biotechnology", "Healthcare", 
+        "E-commerce", "Other"
+    ]
+
     # Input columns
     col1, col2 = st.columns(2)
     
     with col1:
-        business_name = st.text_input("Business Name", 
-                                      help="Enter the legal or trading name of your business")
+        business_name = st.text_input(
+            "Business Name", 
+            help="Enter the legal or trading name of your business",
+            max_chars=100
+        )
     
     with col2:
-        business_types = [
-            "Technology", 
-            "Manufacturing", 
-            "Software", 
-            "Consulting", 
-            "Biotechnology",
-            "Healthcare",
-            "E-commerce",
-            "Other"
-        ]
-        business_type = st.selectbox("Business Type", business_types)
-    
-    # Business description
+        business_type = st.selectbox(
+            "Business Type", 
+            business_types, 
+            help="Select the most appropriate category for your business"
+        )
+
+    # Business Description
     business_description = st.text_area(
         "Business Description", 
-        help="Provide a brief overview of your business, key products/services, and unique value proposition",
-        height=150
+        help="Provide a brief overview of your business, its core activities, and unique value proposition",
+        height=150,
+        max_chars=500
     )
-    
-    # API Key input (optional, for demonstration)
-    api_key = st.text_input(
-        "Hugging Face API Key (optional)", 
-        type="password", 
-        help="If you have a Hugging Face API key, enter it here."
-    )
-    
-    # Strategy Generation Button
-    if st.button("Generate Comprehensive IP Strategy"):
-        # Validate inputs
-        if not business_name or not business_type:
-            st.warning("Please enter business name and select business type")
+
+    # Generate Strategy Button
+    if st.button("Generate IP Strategy", type="primary"):
+        if not all([business_name, business_type, business_description]):
+            st.warning("Please fill in all fields before generating the strategy.")
         else:
-            # Use provided API key or fall back to environment variable
-            if api_key:
-                os.environ['HUGGINGFACE_API_KEY'] = api_key
-            
-            # Show loading spinner
-            with st.spinner('Generating comprehensive IP strategy...'):
+            with st.spinner("Generating comprehensive IP strategy..."):
                 strategy = generate_comprehensive_ip_strategy(
-                    business_name, 
-                    business_type, 
-                    business_description
+                    business_name, business_type, business_description
                 )
-            
-            # Display strategy
-            if strategy.startswith("Error"):
-                st.error(strategy)
-            else:
-                st.success(f"IP Strategy for {business_name}")
                 
-                # Expandable strategy sections
-                with st.expander("Comprehensive IP Strategy", expanded=True):
+                if strategy:
+                    st.markdown("## 📄 Your Comprehensive IP Strategy")
                     st.markdown(strategy)
-                
-                # Additional guidance
-                st.info("""
-                ### Next Steps
-                1. Review the generated strategy carefully
-                2. Consult with an IP attorney
-                3. Develop a detailed implementation plan
-                4. Regularly review and update your IP strategy
-                """)
+                    
+                    # Download option
+                    st.download_button(
+                        label="Download Strategy",
+                        data=strategy,
+                        file_name=f"{business_name}_ip_strategy.md",
+                        mime="text/markdown"
+                    )
+                else:
+                    st.error("Failed to generate IP strategy. Please try again.")
+
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    ### 💡 About This Tool
+    - AI-powered IP strategy generation using advanced language models
+    - Tailored recommendations based on your business type
+    - Free and confidential strategy insights
+    """)
 
 if __name__ == "__main__":
     main()
