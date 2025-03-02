@@ -1,125 +1,153 @@
 import streamlit as st
-import traceback
-import logging
+import openai
+import os
+from dotenv import load_dotenv
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Load environment variables
+load_dotenv()
 
-def generate_ip_strategy(business_name, business_type):
+# Configure OpenAI API
+openai.api_key = os.getenv('OPENAI_API_KEY', '')
+
+def generate_comprehensive_ip_strategy(business_name, business_type, business_description):
     """
-    Generate a basic IP strategy based on business details.
-    This is a placeholder function that will be expanded later.
+    Generate a comprehensive IP strategy using OpenAI's GPT model
     """
-    try:
-        # Simulate some strategy generation logic
-        strategy_components = {
-            "Technology": [
-                "Patent protection for core technologies",
-                "Trade secret management",
-                "Software copyright registration"
-            ],
-            "Manufacturing": [
-                "Design patent for unique product designs",
-                "Trademark for brand protection",
-                "Trade secret protection for manufacturing processes"
-            ],
-            "Software": [
-                "Copyright registration for source code",
-                "Patent protection for unique algorithms",
-                "Trademark for software product name"
-            ],
-            "Consulting": [
-                "Copyright for training materials",
-                "Trademark for consulting brand",
-                "Trade secret protection for methodologies"
-            ],
-            "Other": [
-                "Comprehensive IP audit",
-                "Custom IP protection strategy"
-            ]
-        }
-        
-        # Return strategy based on business type
-        return strategy_components.get(business_type, strategy_components["Other"])
+    if not openai.api_key:
+        return "Error: OpenAI API key is not configured"
     
+    try:
+        prompt = f"""
+        Provide a comprehensive Intellectual Property (IP) strategy for a {business_type} business named {business_name}.
+
+        Business Description: {business_description}
+
+        The IP strategy should cover:
+
+        1. IP Landscape Analysis
+        - Current IP protection status
+        - Potential IP risks and opportunities
+        - Competitive IP landscape
+
+        2. Recommended IP Protection Strategies
+        - Patent strategy
+        - Trademark protection
+        - Copyright considerations
+        - Trade secret management
+
+        3. Detailed Recommendations
+        - Specific action points for each IP type
+        - Estimated costs and timelines
+        - Potential challenges and mitigation strategies
+
+        4. Strategic Insights
+        - Long-term IP positioning
+        - Innovation protection approach
+        - Potential monetization strategies
+
+        5. Compliance and Legal Considerations
+        - Regulatory compliance
+        - International IP protection
+        - Enforcement strategies
+
+        6. Financial Implications
+        - Investment required
+        - Potential ROI from IP protection
+        - Cost-benefit analysis
+
+        Provide a professional, detailed, and actionable strategy that is tailored to the specific needs of a {business_type} business.
+        """
+
+        response = openai.ChatCompletion.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "You are an expert IP strategy consultant."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=4000,
+            temperature=0.7
+        )
+
+        return response.choices[0].message.content
+
     except Exception as e:
-        logger.error(f"Error generating IP strategy: {e}")
-        logger.error(traceback.format_exc())
-        return None
+        return f"An error occurred: {str(e)}"
 
 def main():
-    try:
-        st.set_page_config(page_title="IP Strategy Tool", page_icon="🚀")
-        
-        st.title("Intellectual Property Strategy Generator")
-        
-        st.write("Welcome to your IP Strategy Tool!")
-        
-        # Expanded business type selection
+    st.set_page_config(page_title="AI IP Strategy Generator", page_icon="🚀")
+    
+    st.title("AI-Powered Intellectual Property Strategy Generator")
+    
+    # Input columns
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        business_name = st.text_input("Business Name", 
+                                      help="Enter the legal or trading name of your business")
+    
+    with col2:
         business_types = [
             "Technology", 
             "Manufacturing", 
             "Software", 
             "Consulting", 
+            "Biotechnology",
+            "Healthcare",
+            "E-commerce",
             "Other"
         ]
-        
-        # Input fields with validation
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            business_name = st.text_input("Enter your business name", 
-                                          help="Provide the legal or trading name of your business")
-        
-        with col2:
-            business_type = st.selectbox("Select your business type", 
-                                         business_types, 
-                                         help="Choose the primary type of your business")
-        
-        # Additional context input
-        business_description = st.text_area("Brief business description (optional)", 
-                                            help="Provide additional context about your business")
-        
-        # Strategy generation button
-        if st.button("Generate IP Strategy"):
-            # Input validation
-            if not business_name:
-                st.warning("Please enter a business name")
-            elif not business_type:
-                st.warning("Please select a business type")
-            else:
-                # Attempt strategy generation
-                try:
-                    strategy = generate_ip_strategy(business_name, business_type)
-                    
-                    if strategy:
-                        st.success(f"IP Strategy for {business_name}")
-                        
-                        # Display strategy in an expandable section
-                        with st.expander("Recommended IP Protection Strategies"):
-                            for idx, strategy_item in enumerate(strategy, 1):
-                                st.markdown(f"{idx}. {strategy_item}")
-                        
-                        # Additional guidance
-                        st.info("""
-                        ### Next Steps
-                        1. Consult with an IP attorney
-                        2. Conduct a comprehensive IP audit
-                        3. Develop a detailed protection plan
-                        """)
-                    else:
-                        st.error("Unable to generate strategy. Please try again.")
-                
-                except Exception as e:
-                    st.error(f"An unexpected error occurred: {e}")
-                    logger.error(f"Unexpected error: {e}")
-                    logger.error(traceback.format_exc())
+        business_type = st.selectbox("Business Type", business_types)
     
-    except Exception as e:
-        st.error("A critical error occurred in the application")
-        logger.critical(f"Critical application error: {e}")
-        logger.critical(traceback.format_exc())
+    # Business description
+    business_description = st.text_area(
+        "Business Description", 
+        help="Provide a brief overview of your business, key products/services, and unique value proposition",
+        height=150
+    )
+    
+    # API Key input (optional, for demonstration)
+    api_key = st.text_input(
+        "OpenAI API Key (optional)", 
+        type="password", 
+        help="If you have an OpenAI API key, enter it here. Otherwise, a default key will be used."
+    )
+    
+    # Strategy Generation Button
+    if st.button("Generate Comprehensive IP Strategy"):
+        # Validate inputs
+        if not business_name or not business_type:
+            st.warning("Please enter business name and select business type")
+        else:
+            # Use provided API key or fall back to environment variable
+            if api_key:
+                openai.api_key = api_key
+            
+            # Show loading spinner
+            with st.spinner('Generating comprehensive IP strategy...'):
+                strategy = generate_comprehensive_ip_strategy(
+                    business_name, 
+                    business_type, 
+                    business_description
+                )
+            
+            # Display strategy
+            if strategy.startswith("Error"):
+                st.error(strategy)
+            else:
+                st.success(f"IP Strategy for {business_name}")
+                
+                # Expandable strategy sections
+                with st.expander("Comprehensive IP Strategy", expanded=True):
+                    st.markdown(strategy)
+                
+                # Additional guidance
+                st.info("""
+                ### Next Steps
+                1. Review the generated strategy carefully
+                2. Consult with an IP attorney
+                3. Develop a detailed implementation plan
+                4. Regularly review and update your IP strategy
+                """)
 
 if __name__ == "__main__":
     main()
