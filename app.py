@@ -22,10 +22,19 @@ def generate_comprehensive_ip_strategy(business_name, business_type, business_de
     Generate a comprehensive IP strategy using Hugging Face's free inference API
     with advanced error handling and caching
     """
+    # Retrieve Hugging Face credentials
+    huggingface_username = os.getenv('huggingface_username', '')
+    huggingface_token = os.getenv('huggingface_token', '')
+
+    # Validate credentials
+    if not huggingface_token:
+        st.error("Hugging Face API token is missing. Please configure your credentials.")
+        return None
+
     # Hugging Face API endpoint
     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
     headers = {
-        "Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY', '')}"
+        "Authorization": f"Bearer {huggingface_token}"
     }
 
     # Create a unique hash for caching
